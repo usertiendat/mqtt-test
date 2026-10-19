@@ -53,10 +53,30 @@
     .btn:hover { opacity: 0.9; }
     .btn-danger { background-color: var(--accent-red); color: #fff; }
 
-    .canvas-container { background-color: #090d16; border: 1px solid var(--border-color); border-radius: 8px; padding: 0.5rem; text-align: center; margin-bottom: 1rem; }
+    .canvas-container { background-color: #090d16; border: 1px solid var(--border-color); border-radius: 8px; padding: 0.5rem; text-align: center; margin-bottom: 1rem; position: relative; overflow: hidden; }
     
     canvas.drawing-canvas { background-color: #ffffff; border-radius: 6px; cursor: crosshair; display: block; width: 100%; height: 480px; touch-action: none; }
+    canvas.drawing-canvas.eraser-mode { cursor: none; }
     .anim-canvas { display: block; width: 100%; max-width: 420px; height: 180px; margin: 0 auto; border-radius: 6px; }
+
+    /* Remote cursors */
+    .remote-cursor { position: absolute; pointer-events: none; z-index: 50; transition: left 0.08s linear, top 0.08s linear; }
+    .remote-cursor-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 6px rgba(0,0,0,0.4); }
+    .remote-cursor-label { position: absolute; left: 16px; top: -2px; background: rgba(0,0,0,0.75); color: #fff; font-size: 0.65rem; font-weight: 600; padding: 2px 6px; border-radius: 4px; white-space: nowrap; backdrop-filter: blur(4px); }
+
+    /* Eraser custom cursor */
+    .eraser-cursor-ring { position: absolute; pointer-events: none; z-index: 60; border: 2px solid #ef4444; border-radius: 50%; transform: translate(-50%, -50%); display: none; }
+
+    /* Tool buttons */
+    .tool-toggle { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+    .tool-btn { flex: 1; padding: 0.5rem; border-radius: 6px; border: 2px solid var(--border-color); background: var(--bg-main); color: var(--text-muted); font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 0.4rem; }
+    .tool-btn:hover { border-color: var(--accent-blue); color: var(--text-main); }
+    .tool-btn.active { border-color: var(--accent-blue); background: rgba(56, 189, 248, 0.15); color: var(--accent-blue); }
+    .tool-btn.active.eraser { border-color: var(--accent-red); background: rgba(239, 68, 68, 0.15); color: var(--accent-red); }
+
+    /* Export button */
+    .btn-export { background: linear-gradient(135deg, #a855f7, #6366f1); color: #fff; }
+    .btn-export:hover { opacity: 0.9; }
 
     .log-box { height: 150px; overflow-y: auto; background-color: #090d16; border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 0.75rem; font-family: monospace; font-size: 0.75rem; color: #38bdf8; }
     .log-line { margin-bottom: 0.25rem; word-break: break-all; }
@@ -217,20 +237,34 @@
 
           <div class="card">
             <div class="card-title"><span>Công Cụ Vẽ</span></div>
-            <div style="margin-bottom: 0.75rem;">
-              <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Màu sắc nét cọ:</label>
-              <div class="color-picker">
-                <div class="color-btn active" style="background-color: #0f172a;" onclick="setColor('#0f172a', this)"></div>
-                <div class="color-btn" style="background-color: #ef4444;" onclick="setColor('#ef4444', this)"></div>
-                <div class="color-btn" style="background-color: #22c55e;" onclick="setColor('#22c55e', this)"></div>
-                <div class="color-btn" style="background-color: #38bdf8;" onclick="setColor('#38bdf8', this)"></div>
+            <!-- Tool toggle: Pen / Eraser -->
+            <div class="tool-toggle">
+              <button id="penBtn" class="tool-btn active" onclick="setTool('pen')">🖊️ Bút vẽ</button>
+              <button id="eraserBtn" class="tool-btn" onclick="setTool('eraser')">🧹 Cục tẩy</button>
+            </div>
+            <div id="penOptions">
+              <div style="margin-bottom: 0.75rem;">
+                <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Màu sắc nét cọ:</label>
+                <div class="color-picker">
+                  <div class="color-btn active" style="background-color: #0f172a;" onclick="setColor('#0f172a', this)"></div>
+                  <div class="color-btn" style="background-color: #ef4444;" onclick="setColor('#ef4444', this)"></div>
+                  <div class="color-btn" style="background-color: #22c55e;" onclick="setColor('#22c55e', this)"></div>
+                  <div class="color-btn" style="background-color: #38bdf8;" onclick="setColor('#38bdf8', this)"></div>
+                </div>
+              </div>
+              <div style="margin-bottom: 1rem;">
+                <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Độ dày nét cọ: <span id="sizeVal">4</span>px</label>
+                <input type="range" id="brushSize" min="1" max="20" value="4" style="width: 100%; accent-color: var(--accent-blue);" oninput="document.getElementById('sizeVal').textContent=this.value">
               </div>
             </div>
-            <div style="margin-bottom: 1rem;">
-              <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Độ dày: <span id="sizeVal">4</span>px</label>
-              <input type="range" id="brushSize" min="1" max="20" value="4" style="width: 100%; accent-color: var(--accent-blue);" oninput="document.getElementById('sizeVal').textContent=this.value">
+            <div id="eraserOptions" style="display: none;">
+              <div style="margin-bottom: 1rem;">
+                <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Kích thước tẩy: <span id="eraserSizeVal">20</span>px</label>
+                <input type="range" id="eraserSize" min="5" max="60" value="20" style="width: 100%; accent-color: var(--accent-red);" oninput="document.getElementById('eraserSizeVal').textContent=this.value; updateEraserCursorSize()">
+              </div>
             </div>
-            <button class="btn btn-danger" onclick="clearBoard()">Xóa Sạch Bảng Chung</button>
+            <button class="btn btn-danger" onclick="clearBoard()" style="margin-bottom: 0.5rem;">🗑️ Xóa Sạch Bảng Chung</button>
+            <button class="btn btn-export" onclick="exportCanvas()">📥 Xuất Ảnh Bảng Vẽ (PNG)</button>
           </div>
 
           <div class="card">
@@ -244,8 +278,11 @@
             <span>Bảng Vẽ Phân Tán (Hỗ trợ PC & Điện thoại cuộn trang)</span>
             <span class="badge badge-green">Optimized Touch</span>
           </div>
-          <div class="canvas-container" style="flex: 1; margin-bottom: 0;">
+          <div class="canvas-container" id="canvasContainer" style="flex: 1; margin-bottom: 0;">
             <canvas id="whiteboard" class="drawing-canvas" width="1000" height="600" style="height: 560px;"></canvas>
+            <!-- Eraser cursor ring -->
+            <div id="eraserCursorRing" class="eraser-cursor-ring"></div>
+            <!-- Remote cursors will be appended here dynamically -->
           </div>
         </div>
       </div>
@@ -479,15 +516,139 @@
     let painting = false;
     let currentColor = '#0f172a';
     let lastX = 0, lastY = 0;
+    let currentTool = 'pen'; // 'pen' or 'eraser'
 
     const myId = 'Client_' + Math.floor(Math.random() * 9000 + 1000);
     document.getElementById('myClientId').textContent = myId;
 
+    // Assign a random color for this client's cursor on other screens
+    const cursorColors = ['#38bdf8','#22c55e','#f59e0b','#ef4444','#a855f7','#ec4899','#14b8a6','#f97316'];
+    const myCursorColor = cursorColors[Math.floor(Math.random() * cursorColors.length)];
+
     const topicName = "mywebsite/whiteboard/room_master";
     const presenceTopic = "mywebsite/whiteboard/presence";
+    const cursorTopic = "mywebsite/whiteboard/cursors";
 
     const activeClients = new Map();
     activeClients.set(myId, { id: myId, status: 'Đang hoạt động', lastSeen: Date.now() });
+
+    // --- REMOTE CURSOR MANAGEMENT ---
+    const remoteCursors = new Map(); // id -> { element, timeout }
+
+    function getOrCreateCursorElement(senderId, color) {
+      if (remoteCursors.has(senderId)) return remoteCursors.get(senderId).element;
+
+      const container = document.getElementById('canvasContainer');
+      const el = document.createElement('div');
+      el.className = 'remote-cursor';
+      el.innerHTML = `<div class="remote-cursor-dot" style="background:${color}"></div><div class="remote-cursor-label" style="background:${color}">${senderId}</div>`;
+      container.appendChild(el);
+      remoteCursors.set(senderId, { element: el, timeout: null });
+      return el;
+    }
+
+    function updateRemoteCursor(senderId, xPercent, yPercent, color) {
+      const container = document.getElementById('canvasContainer');
+      const rect = container.getBoundingClientRect();
+      const el = getOrCreateCursorElement(senderId, color);
+
+      // Position relative to container using percentages for responsiveness
+      el.style.left = (xPercent * rect.width) + 'px';
+      el.style.top = (yPercent * rect.height) + 'px';
+      el.style.display = 'block';
+
+      // Auto-hide after 3 seconds of inactivity
+      const entry = remoteCursors.get(senderId);
+      if (entry.timeout) clearTimeout(entry.timeout);
+      entry.timeout = setTimeout(() => {
+        el.style.display = 'none';
+      }, 3000);
+    }
+
+    function removeRemoteCursor(senderId) {
+      if (remoteCursors.has(senderId)) {
+        const entry = remoteCursors.get(senderId);
+        if (entry.timeout) clearTimeout(entry.timeout);
+        entry.element.remove();
+        remoteCursors.delete(senderId);
+      }
+    }
+
+    // Throttle cursor publishing to ~30ms
+    let lastCursorSend = 0;
+    function publishCursorPosition(x, y) {
+      const now = Date.now();
+      if (now - lastCursorSend < 30) return;
+      lastCursorSend = now;
+
+      if (client.connected) {
+        const rect = canvas.getBoundingClientRect();
+        client.publish(cursorTopic, JSON.stringify({
+          sender: myId,
+          x: x / rect.width,
+          y: y / rect.height,
+          color: myCursorColor
+        }));
+      }
+    }
+
+    // --- ERASER TOOL ---
+    const eraserCursorRing = document.getElementById('eraserCursorRing');
+
+    function setTool(tool) {
+      currentTool = tool;
+      const penBtn = document.getElementById('penBtn');
+      const eraserBtn = document.getElementById('eraserBtn');
+      const penOptions = document.getElementById('penOptions');
+      const eraserOptions = document.getElementById('eraserOptions');
+
+      penBtn.classList.remove('active');
+      eraserBtn.classList.remove('active', 'eraser');
+
+      if (tool === 'pen') {
+        penBtn.classList.add('active');
+        penOptions.style.display = 'block';
+        eraserOptions.style.display = 'none';
+        canvas.classList.remove('eraser-mode');
+        eraserCursorRing.style.display = 'none';
+      } else {
+        eraserBtn.classList.add('active', 'eraser');
+        penOptions.style.display = 'none';
+        eraserOptions.style.display = 'block';
+        canvas.classList.add('eraser-mode');
+        updateEraserCursorSize();
+      }
+      logNet(`Đã chọn công cụ: ${tool === 'pen' ? '🖊️ Bút vẽ' : '🧹 Cục tẩy'}`);
+    }
+
+    function updateEraserCursorSize() {
+      const size = document.getElementById('eraserSize').value;
+      // Scale eraser ring to CSS pixels (canvas is scaled)
+      const rect = canvas.getBoundingClientRect();
+      const scale = rect.width / canvas.width;
+      const displaySize = size * scale;
+      eraserCursorRing.style.width = displaySize + 'px';
+      eraserCursorRing.style.height = displaySize + 'px';
+    }
+
+    // --- EXPORT CANVAS ---
+    function exportCanvas() {
+      // Create a temporary canvas with white background + drawings
+      const exportCanvas = document.createElement('canvas');
+      exportCanvas.width = canvas.width;
+      exportCanvas.height = canvas.height;
+      const exportCtx = exportCanvas.getContext('2d');
+      exportCtx.fillStyle = '#ffffff';
+      exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+      exportCtx.drawImage(canvas, 0, 0);
+
+      const link = document.createElement('a');
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      link.download = `whiteboard_${timestamp}.png`;
+      link.href = exportCanvas.toDataURL('image/png');
+      link.click();
+      logNet('📥 Đã xuất bảng vẽ thành ảnh PNG.');
+    }
 
     function logNet(msg) {
       const logs = document.getElementById('netLogs');
@@ -522,8 +683,8 @@
       document.getElementById('connStatus').textContent = 'Đã kết nối';
       document.getElementById('connStatus').className = 'badge badge-green';
 
-      client.subscribe([topicName, presenceTopic], (err) => {
-        if (!err) logNet(`Đã Subscribe vào các Topic chính.`);
+      client.subscribe([topicName, presenceTopic, cursorTopic], (err) => {
+        if (!err) logNet(`Đã Subscribe vào các Topic chính (bao gồm cursors).`);
       });
 
       setInterval(() => {
@@ -540,12 +701,20 @@
             activeClients.set(data.id, { id: data.id, status: 'Trực tuyến', lastSeen: Date.now() });
             updateClientListUI();
           }
+        } else if (topic === cursorTopic) {
+          // Realtime cursor from another client
+          if (data.sender && data.sender !== myId) {
+            updateRemoteCursor(data.sender, data.x, data.y, data.color || '#38bdf8');
+          }
         } else if (topic === topicName) {
           if (data.sender === myId) return;
 
           if (data.type === 'draw') {
-            drawLine(data.x1, data.y1, data.x2, data.y2, data.color, data.size);
+            drawLine(data.x1, data.y1, data.x2, data.y2, data.color, data.size, false);
             logNet(`[${data.sender}] Vẽ nét x(${Math.round(data.x1)}->${Math.round(data.x2)})`);
+          } else if (data.type === 'erase') {
+            eraseLine(data.x1, data.y1, data.x2, data.y2, data.size);
+            logNet(`[${data.sender}] Tẩy nét`);
           } else if (data.type === 'clear') {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             logNet(`[${data.sender}] Xóa sạch bảng`);
@@ -558,6 +727,8 @@
 
     function getCursorPos(e) {
       const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
       let clientX, clientY;
       if (e.touches && e.touches.length > 0) {
         clientX = e.touches[0].clientX;
@@ -567,8 +738,10 @@
         clientY = e.clientY;
       }
       return {
-        x: clientX - rect.left,
-        y: clientY - rect.top
+        x: (clientX - rect.left) * scaleX,
+        y: (clientY - rect.top) * scaleY,
+        cssX: clientX - rect.left,
+        cssY: clientY - rect.top
       };
     }
 
@@ -581,25 +754,54 @@
     }
 
     function drawPosition(e) {
-      if (!painting) return;
       e.preventDefault();
       const pos = getCursorPos(e);
+
+      // Always publish cursor position (even when not drawing)
+      publishCursorPosition(pos.cssX, pos.cssY);
+
+      // Update eraser ring position
+      if (currentTool === 'eraser') {
+        const container = document.getElementById('canvasContainer');
+        const containerRect = container.getBoundingClientRect();
+        const canvasRect = canvas.getBoundingClientRect();
+        eraserCursorRing.style.display = 'block';
+        eraserCursorRing.style.left = (canvasRect.left - containerRect.left + pos.cssX) + 'px';
+        eraserCursorRing.style.top = (canvasRect.top - containerRect.top + pos.cssY) + 'px';
+      }
+
+      if (!painting) return;
+
       const currentX = pos.x;
       const currentY = pos.y;
-      const size = document.getElementById('brushSize').value;
 
-      drawLine(lastX, lastY, currentX, currentY, currentColor, size);
+      if (currentTool === 'eraser') {
+        const eraserSz = document.getElementById('eraserSize').value;
+        eraseLine(lastX, lastY, currentX, currentY, eraserSz);
 
-      if (client.connected) {
-        const packet = JSON.stringify({
-          sender: myId,
-          type: 'draw',
-          x1: lastX, y1: lastY,
-          x2: currentX, y2: currentY,
-          color: currentColor,
-          size: size
-        });
-        client.publish(topicName, packet);
+        if (client.connected) {
+          client.publish(topicName, JSON.stringify({
+            sender: myId,
+            type: 'erase',
+            x1: lastX, y1: lastY,
+            x2: currentX, y2: currentY,
+            size: eraserSz
+          }));
+        }
+      } else {
+        const size = document.getElementById('brushSize').value;
+        drawLine(lastX, lastY, currentX, currentY, currentColor, size, false);
+
+        if (client.connected) {
+          client.publish(topicName, JSON.stringify({
+            sender: myId,
+            type: 'draw',
+            x1: lastX, y1: lastY,
+            x2: currentX, y2: currentY,
+            color: currentColor,
+            size: size
+          }));
+        }
       }
 
       lastX = currentX;
@@ -611,16 +813,25 @@
       painting = false;
     }
 
+    // Hide eraser ring when leaving canvas
+    function handleCanvasLeave(e) {
+      painting = false;
+      if (currentTool === 'eraser') {
+        eraserCursorRing.style.display = 'none';
+      }
+    }
+
     canvas.addEventListener('mousedown', startPosition);
     canvas.addEventListener('mousemove', drawPosition);
     canvas.addEventListener('mouseup', endPosition);
-    canvas.addEventListener('mouseleave', endPosition);
+    canvas.addEventListener('mouseleave', handleCanvasLeave);
 
     canvas.addEventListener('touchstart', startPosition, { passive: false });
     canvas.addEventListener('touchmove', drawPosition, { passive: false });
     canvas.addEventListener('touchend', endPosition);
 
     function drawLine(x1, y1, x2, y2, color, size) {
+      ctx.globalCompositeOperation = 'source-over';
       ctx.beginPath();
       ctx.moveTo(x1, y1);
       ctx.lineTo(x2, y2);
@@ -631,10 +842,24 @@
       ctx.closePath();
     }
 
+    function eraseLine(x1, y1, x2, y2, size) {
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.lineWidth = size;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+      ctx.closePath();
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
     function setColor(color, element) {
       currentColor = color;
       document.querySelectorAll('.color-btn').forEach(btn => btn.classList.remove('active'));
       element.classList.add('active');
+      // Switching color also switches to pen tool
+      setTool('pen');
     }
 
     function clearBoard() {
@@ -648,9 +873,10 @@
     setInterval(() => {
       const now = Date.now();
       let changed = false;
-      activeClients.forEach((client, id) => {
-        if (id !== myId && now - client.lastSeen > 8000) {
+      activeClients.forEach((c, id) => {
+        if (id !== myId && now - c.lastSeen > 8000) {
           activeClients.delete(id);
+          removeRemoteCursor(id);
           changed = true;
         }
       });
